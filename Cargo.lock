@@ -10,7 +10,6 @@ checksum = "aae1277d39aeec15cb388266ecc24b11c80469deae6067e17a1a7aa9e5c1f234"
 name = "anime"
 version = "0.1.0"
 dependencies = [
- "hidapi",
  "rusb",
 ]
 
@@ -45,17 +44,6 @@ dependencies = [
  "libc",
  "redox_syscall",
  "winapi",
-]
-
-[[package]]
-name = "hidapi"
-version = "1.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5c6ffb97f2ec5835ec73bcea5256fc2cd57a13c5958230778ef97f11900ba661"
-dependencies = [
- "cc",
- "libc",
- "pkg-config",
 ]
 
 [[package]]

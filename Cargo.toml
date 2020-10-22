@@ -8,4 +8,3 @@ edition = "2018"
 
 [dependencies]
 rusb = "0.6"
-hidapi = "1.2.3"
