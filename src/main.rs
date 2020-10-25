@@ -1,5 +1,5 @@
 use core::time::Duration;
-use std::thread::sleep;
+// use std::thread::sleep;
 
 use rusb::{DeviceHandle, GlobalContext};
 
@@ -10,21 +10,28 @@ const REQUEST_TYPE: u8 = 0x21;
 const REQUEST: u8 = 0x9;
 const VALUE: u16 = 0x35e;
 
-const INIT_HEADERS: [[u8; 4]; 3] = [
-  [0x5e, 0xc3, 0x01, 0x00],
-  [0x5e, 0xc4, 0x01, 0x80],
-  [0x5e, 0xc0, 0x04, 0x03],
-];
-const PANE_HEADERS: [[u8; 7]; 2] = [
-  [0x5e, 0xc0, 0x02, 0x01, 0x00, 0x73, 0x02],
-  [0x5e, 0xc0, 0x02, 0x74, 0x02, 0x73, 0x02],
-];
-const FLUSH_HEADER: [u8; 3] = [0x5e, 0xc0, 0x03];
+// "ASUS Tech.Inc."
+const INIT_HEADER: [u8; 15] = [0x5e, 0x41, 0x53, 0x55, 0x53, 0x20, 0x54, 0x65, 0x63, 0x68, 0x2e, 0x49, 0x6e, 0x63, 0x2e];
+// const INIT_01: [u8; 2] = [0x5e, 0xc2];
+// const INIT_02: [u8; 2] = [0x5e, 0xc0];
+
+// turn on
+const INIT1: [u8; 4] = [0x5e, 0xc3, 0x01, 0x00];
+const INIT2: [u8; 4] = [0x5e, 0xc4, 0x01, 0x80];
+const INIT3: [u8; 4] = [0x5e, 0xc0, 0x04, 0x03];
+// turn off
+// const INIT1: [u8; 4] = [0x5e, 0xc3, 0x01, 0x80];
+// const INIT2: [u8; 4] = [0x5e, 0xc4, 0x01, 0x80];
+// const INIT3: [u8; 4] = [0x5e, 0xc0, 0x04, 0x00];
+
+const PANE1_HEADER: [u8; 7] = [0x5e, 0xc0, 0x02, 0x01, 0x00, 0x73, 0x02];
+const PANE2_HEADER: [u8; 7] = [0x5e, 0xc0, 0x02, 0x74, 0x02, 0x73, 0x02];
+
+const FLUSH: [u8; 3] = [0x5e, 0xc0, 0x03];
 
 // 55 rows, 1215 total
-const ROW_WIDTHS: [usize; 55] = [33,33,33,33,33,33,33,32,32,31,31,30,30,29,29,28,28,27,27,26,26,25,25,24,24,23,23,22,22,21,21,20,20,19,19,18,18,17,17,16,16,15,15,14,14,13,13,12,12,11,11,10,10,9,9];
 const PANE1_ROW_INDICES: [[usize; 2]; 21] = [
-  [7, 39], // 1 short on right side
+  [8, 39], // 1 short on right side
   [41, 73],
   [76, 108],
   [109, 141],
@@ -81,10 +88,19 @@ const PANE2_ROW_INDICES: [[usize; 2]; 35] = [
   [585, 594],
   [596, 605],
   [606, 614],
-  [616, 625],
+  [616, 624],
 ];
+const PANE2_Y_OFFSET: usize = 20;
+const PANE2_X_OFFSET: usize = 3;
+
 fn send(buf: &[u8], device_handle: &DeviceHandle<GlobalContext>, timeout: &Duration) {
-  match device_handle.write_control(REQUEST_TYPE, REQUEST, VALUE, 0, buf, *timeout) {
+  let mut buffer = [0u8; 640];
+  for x in 0..buf.len() {
+    buffer[x] = buf[x];
+  }
+  // println!("{:02X?}", buffer);
+
+  match device_handle.write_control(REQUEST_TYPE, REQUEST, VALUE, 0, &buffer, *timeout) {
     // Ok(size) => println!("{} written", size),
     Ok(_) => {},
     Err(e) => println!("Error: {}", e)
@@ -92,7 +108,7 @@ fn send(buf: &[u8], device_handle: &DeviceHandle<GlobalContext>, timeout: &Durat
 }
 
 fn usb() {
-  let tick = Duration::new(0, 500 * 1000000);
+  // let tick = Duration::new(0, 500 * 1000000);
   let timeout = Duration::new(5, 0);
 
   for device in rusb::devices().unwrap().iter() {
@@ -105,51 +121,65 @@ fn usb() {
       let config = device.active_config_descriptor().unwrap();
       let interface = config.interfaces().next().unwrap();
 
+      // device_handle.reset().unwrap();
+
       device_handle.claim_interface(interface.number()).unwrap();
 
-      // let mut inits = [[0u8; 640]; 3];
-      // for i in 0..3 {
-      //   for x in 0..INIT_HEADERS[i].len() {
-      //     inits[i][x] = INIT_HEADERS[i][x];
-      //   }
-      // }
+      send(&INIT_HEADER, &device_handle, &timeout);
+      // send(&INIT_01, &device_handle, &timeout);
+      // send(&INIT_02, &device_handle, &timeout);
 
-      let mut p = 0;
-      loop {
-        let mut pane1 = [0u8; 640];
-        for x in 0..7 {
-          pane1[x] = PANE_HEADERS[0][x];
-        }
-        for r in 0..PANE1_ROW_INDICES.len() {
-          for x in PANE1_ROW_INDICES[r][0]..(PANE1_ROW_INDICES[r][1] + 1) {
-            pane1[x] = if r % 3 == 0 { 255 } else { 32 };
-          }
-        }
-
-        // second pane starts at row 19, col 3 (0-indexed)
-        let mut pane2 = [0u8; 640];
-        for x in 0..7 {
-          pane2[x] = PANE_HEADERS[1][x];
-        }
-        for r in 0..PANE2_ROW_INDICES.len() {
-          for x in PANE2_ROW_INDICES[r][0]..(PANE2_ROW_INDICES[r][1] + 1) {
-            pane2[x] = if r % 3 == 1 { 255 } else { 32 };
-          }
-        }
-
-        let mut flush = [0u8; 640];
-        for x in 0..FLUSH_HEADER.len() {
-          flush[x] = FLUSH_HEADER[x];
-        }
-
-        for buf in [pane1, pane2, flush].iter() {
-          // println!("{:?}", buf);
-          send(buf, &device_handle, &timeout);
-        }
-
-        p = (p + 1) % 640;
-        sleep(tick);
+      for buf in [INIT1, INIT2, INIT3].iter() {
+        send(buf, &device_handle, &timeout);
       }
+
+      let mut widths = vec![];
+      for indices in PANE1_ROW_INDICES.iter() {
+        widths.push(indices[1] - indices[0] + 1);
+      }
+      for (r, indices) in PANE2_ROW_INDICES.iter().enumerate() {
+        if r == 0 {
+          let p1_last_width = widths.pop().unwrap();
+          widths.push(p1_last_width + indices[1] - indices[0] + 1);
+        }
+        else {
+          widths.push(indices[1] - indices[0] + 1);
+        }
+      }
+      let mut pixels = vec![];
+      for width in widths {
+        let mut row = vec![0u8; width];
+        row[0] = 255;
+        row[width - 1] = 255;
+        pixels.push(row);
+      }
+
+      let mut pane1 = [0u8; 640];
+      for x in 0..7 {
+        pane1[x] = PANE1_HEADER[x];
+      }
+      for (r, indices) in PANE1_ROW_INDICES.iter().enumerate() {
+        for (i, x) in (indices[0]..(indices[1] + 1)).enumerate() {
+          pane1[x] = pixels[r][i];
+        }
+      }
+
+      let mut pane2 = [0u8; 640];
+      for x in 0..7 {
+        pane2[x] = PANE2_HEADER[x];
+      }
+      for (r, indices) in PANE2_ROW_INDICES.iter().enumerate() {
+        let x_offset = if r == 0 { PANE2_X_OFFSET } else { 0 };
+        for (i, x) in (indices[0]..(indices[1] + 1)).enumerate() {
+          pane2[x] = pixels[r + PANE2_Y_OFFSET][i + x_offset];
+        }
+      }
+
+      for buf in [pane1, pane2].iter() {
+        send(buf, &device_handle, &timeout);
+      }
+
+      send(&FLUSH, &device_handle, &timeout);
     }
   }
 }
