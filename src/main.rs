@@ -106,6 +106,33 @@ fn send(buf: &[u8], device_handle: &DeviceHandle<GlobalContext>, timeout: &Durat
   }
 }
 
+fn send_pixels(pixels: Vec<Vec<u8>>, device_handle: &DeviceHandle<GlobalContext>, timeout: &Duration) {
+  let mut pane1 = [0u8; 640];
+  for x in 0..7 {
+    pane1[x] = PANE1_HEADER[x];
+  }
+  for (r, (index, width)) in PANE1_ROWS.iter().enumerate() {
+    for x in 0..*width {
+      pane1[index + x] = pixels[r][x];
+    }
+  }
+
+  let mut pane2 = [0u8; 640];
+  for x in 0..7 {
+    pane2[x] = PANE2_HEADER[x];
+  }
+  for (r, (index, width)) in PANE2_ROWS.iter().enumerate() {
+    let x_offset = if r == 0 { PANE2_X_OFFSET } else { 0 };
+    for x in 0..*width {
+      pane2[index + x] = pixels[r + PANE2_Y_OFFSET][x + x_offset];
+    }
+  }
+
+  send(&pane1, &device_handle, &timeout);
+  send(&pane2, &device_handle, &timeout);
+  send(&FLUSH, &device_handle, &timeout);
+}
+
 fn usb() {
   // let tick = Duration::new(0, 500 * 1000000);
   let timeout = Duration::new(5, 0);
@@ -148,32 +175,7 @@ fn usb() {
         pixels.push(row);
       }
 
-      let mut pane1 = [0u8; 640];
-      for x in 0..7 {
-        pane1[x] = PANE1_HEADER[x];
-      }
-      for (r, (index, width)) in PANE1_ROWS.iter().enumerate() {
-        for x in 0..*width {
-          pane1[index + x] = pixels[r][x];
-        }
-      }
-
-      let mut pane2 = [0u8; 640];
-      for x in 0..7 {
-        pane2[x] = PANE2_HEADER[x];
-      }
-      for (r, (index, width)) in PANE2_ROWS.iter().enumerate() {
-        let x_offset = if r == 0 { PANE2_X_OFFSET } else { 0 };
-        for x in 0..*width {
-          pane2[index + x] = pixels[r + PANE2_Y_OFFSET][x + x_offset];
-        }
-      }
-
-      for buf in [pane1, pane2].iter() {
-        send(buf, &device_handle, &timeout);
-      }
-
-      send(&FLUSH, &device_handle, &timeout);
+      send_pixels(pixels, &device_handle, &timeout);
     }
   }
 }
