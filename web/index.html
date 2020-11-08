@@ -1,0 +1,19 @@
+<!doctype html>
+<head>
+  <title>AniMe Matrix</title>
+</head>
+<body>
+  <h1>AniMe Matrix</h1>
+  <svg id='grid' viewBox='0 0 100 100'></svg>
+  <svg viewBox='0 0 100 10'>
+    <defs>
+      <linearGradient id='gradient' x1='0' x2='1' y1='0' y2='0'>
+        <stop offset='0%' stop-color='black' />
+        <stop offset='100%' stop-color='white' />
+      </linearGradient>
+    </defs>
+    <rect id='slide' x='0' y='0' width='100' height='5' fill='url(#gradient)' />
+    <rect id='current-color' x='0' y='5' width='100' height='5' fill='white' />
+  </svg>
+  <script src='./web.js'></script>
+</body>
