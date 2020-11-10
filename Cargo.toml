@@ -8,3 +8,7 @@ edition = "2018"
 
 [dependencies]
 rusb = "0.6"
+
+rocket = "0.4.5"
+rocket_contrib = { version = "0.4.5", features = ["tera_templates"] }
+serde = { version = "1.0", features = ["derive"] }

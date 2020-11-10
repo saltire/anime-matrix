@@ -1,7 +1,15 @@
+#![feature(proc_macro_hygiene, decl_macro)]
+
+#[macro_use] extern crate rocket;
+#[macro_use] extern crate serde;
+
+
 use core::time::Duration;
 // use std::thread::sleep;
 
 use rusb::{DeviceHandle, GlobalContext};
+
+mod server;
 
 const VENDOR_ID: u16 = 0x0b05;
 const PRODUCT_ID: u16 = 0x193b;
@@ -182,4 +190,6 @@ fn usb() {
 
 fn main() {
   usb();
+
+  server::start();
 }
