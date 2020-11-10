@@ -1,23 +1,7 @@
-use rocket_contrib::templates::Template;
-
-#[derive(Serialize)]
-struct TemplateContext {
-  title: String,
-  text: String,
-}
-
-#[get("/")]
-fn index() -> Template {
-  let ctx = TemplateContext {
-    title: String::from("Hello!"),
-    text: String::from("Hello world!!!"),
-  };
-  Template::render("hello", &ctx)
-}
+use rocket_contrib::serve::StaticFiles;
 
 pub fn start() {
   rocket::ignite()
-    .mount("/", routes![index])
-    .attach(Template::fairing())
+    .mount("/", StaticFiles::from("web"))
     .launch();
 }
