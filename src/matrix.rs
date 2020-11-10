@@ -93,89 +93,105 @@ const PANE2_ROWS: [(usize, usize); 35] = [
 const PANE2_Y_OFFSET: usize = 20;
 const PANE2_X_OFFSET: usize = 3;
 
-fn send(buf: &[u8], device_handle: &DeviceHandle<GlobalContext>, timeout: &Duration) {
-  let mut buffer = [0u8; 640];
-  for x in 0..buf.len() {
-    buffer[x] = buf[x];
-  }
-  // println!("{:02X?}", buffer);
-
-  match device_handle.write_control(REQUEST_TYPE, REQUEST, VALUE, 0, &buffer, *timeout) {
-    Ok(_) => {},
-    Err(e) => println!("Error: {}", e)
-  }
+pub struct Matrix {
+  device_handle: DeviceHandle<GlobalContext>,
+  timeout: Duration,
 }
 
-fn send_pixels(pixels: Vec<Vec<u8>>, device_handle: &DeviceHandle<GlobalContext>, timeout: &Duration) {
-  let mut pane1 = [0u8; 640];
-  for x in 0..7 {
-    pane1[x] = PANE1_HEADER[x];
-  }
-  for (r, (index, width)) in PANE1_ROWS.iter().enumerate() {
-    for x in 0..*width {
-      pane1[index + x] = pixels[r][x];
+impl Matrix {
+  fn send(&self, buf: &[u8]) {
+    let mut buffer = [0u8; 640];
+    for x in 0..buf.len() {
+      buffer[x] = buf[x];
+    }
+    // println!("{:02X?}", buffer);
+
+    match self.device_handle.write_control(REQUEST_TYPE, REQUEST, VALUE, 0, &buffer, self.timeout) {
+      Ok(_) => {},
+      Err(e) => println!("Error: {}", e)
     }
   }
 
-  let mut pane2 = [0u8; 640];
-  for x in 0..7 {
-    pane2[x] = PANE2_HEADER[x];
-  }
-  for (r, (index, width)) in PANE2_ROWS.iter().enumerate() {
-    let x_offset = if r == 0 { PANE2_X_OFFSET } else { 0 };
-    for x in 0..*width {
-      pane2[index + x] = pixels[r + PANE2_Y_OFFSET][x + x_offset];
+  pub fn send_pixels(&self, pixels: &Vec<Vec<u8>>) {
+    let mut pane1 = [0u8; 640];
+    for x in 0..7 {
+      pane1[x] = PANE1_HEADER[x];
     }
+    for (r, (index, width)) in PANE1_ROWS.iter().enumerate() {
+      for x in 0..*width {
+        pane1[index + x] = pixels[r][x];
+      }
+    }
+
+    let mut pane2 = [0u8; 640];
+    for x in 0..7 {
+      pane2[x] = PANE2_HEADER[x];
+    }
+    for (r, (index, width)) in PANE2_ROWS.iter().enumerate() {
+      let x_offset = if r == 0 { PANE2_X_OFFSET } else { 0 };
+      for x in 0..*width {
+        pane2[index + x] = pixels[r + PANE2_Y_OFFSET][x + x_offset];
+      }
+    }
+
+    self.send(&pane1);
+    self.send(&pane2);
+    self.send(&FLUSH);
   }
 
-  send(&pane1, &device_handle, &timeout);
-  send(&pane2, &device_handle, &timeout);
-  send(&FLUSH, &device_handle, &timeout);
-}
+  pub fn new() -> Option<Matrix> {
+    // let tick = Duration::new(0, 500 * 1000000);
+    // let timeout = Duration::new(5, 0);
 
-pub fn usb() {
-  // let tick = Duration::new(0, 500 * 1000000);
-  let timeout = Duration::new(5, 0);
+    for device in rusb::devices().unwrap().iter() {
+      let device_desc = device.device_descriptor().unwrap();
 
-  for device in rusb::devices().unwrap().iter() {
-    let device_desc = device.device_descriptor().unwrap();
+      if device_desc.vendor_id() == VENDOR_ID && device_desc.product_id() == PRODUCT_ID {
+        let mut device_handle = device.open().unwrap(); // sends GET_DESCRIPTOR_FROM_DEVICE x2
 
-    if device_desc.vendor_id() == VENDOR_ID && device_desc.product_id() == PRODUCT_ID {
-      let mut device_handle = device.open().unwrap(); // sends GET_DESCRIPTOR_FROM_DEVICE x2
+        // This device has 1 config, 1 interface, 1 endpoint.
+        let config = device.active_config_descriptor().unwrap();
+        let interface = config.interfaces().next().unwrap();
 
-      // This device has 1 config, 1 interface, 1 endpoint.
-      let config = device.active_config_descriptor().unwrap();
-      let interface = config.interfaces().next().unwrap();
+        // device_handle.reset().unwrap();
 
-      // device_handle.reset().unwrap();
+        device_handle.claim_interface(interface.number()).unwrap();
 
-      device_handle.claim_interface(interface.number()).unwrap();
+        let matrix = Matrix {
+          device_handle,
+          timeout: Duration::new(5, 0),
+        };
 
-      send(&INIT_HEADER, &device_handle, &timeout);
-      // send(&INIT_01, &device_handle, &timeout);
-      // send(&INIT_02, &device_handle, &timeout);
+        matrix.send(&INIT_HEADER);
+        // send(&INIT_01, &device_handle, &timeout);
+        // send(&INIT_02, &device_handle, &timeout);
 
-      for buf in [INIT1, INIT2, INIT3].iter() {
-        send(buf, &device_handle, &timeout);
+        for buf in [INIT1, INIT2, INIT3].iter() {
+          matrix.send(buf);
+        }
+
+        // let mut widths = vec![];
+        // for (_index, width) in PANE1_ROWS.iter() {
+        //   widths.push(*width);
+        // }
+        // for (r, (_index, width)) in PANE2_ROWS.iter().enumerate() {
+        //   let last_width = if r == 0 { widths.pop().unwrap() } else { 0 };
+        //   widths.push(last_width + width);
+        // }
+        // let mut pixels = vec![];
+        // for width in widths {
+        //   let mut row = vec![0u8; width];
+        //   row[0] = 255;
+        //   row[width - 1] = 255;
+        //   pixels.push(row);
+        // }
+
+        // matrix.send_pixels(&pixels);
+
+        return Some(matrix);
       }
-
-      let mut widths = vec![];
-      for (_index, width) in PANE1_ROWS.iter() {
-        widths.push(*width);
-      }
-      for (r, (_index, width)) in PANE2_ROWS.iter().enumerate() {
-        let last_width = if r == 0 { widths.pop().unwrap() } else { 0 };
-        widths.push(last_width + width);
-      }
-      let mut pixels = vec![];
-      for width in widths {
-        let mut row = vec![0u8; width];
-        row[0] = 255;
-        row[width - 1] = 255;
-        pixels.push(row);
-      }
-
-      send_pixels(pixels, &device_handle, &timeout);
     }
+
+    None
   }
 }

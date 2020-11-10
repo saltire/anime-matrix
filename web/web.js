@@ -10,9 +10,10 @@ const widths = [
   26, 26, 25, 25, 24, 24, 23, 23, 22, 22, 21, 21, 20, 20, 19, 19, 18, 18,
   17, 17, 16, 16, 15, 15, 14, 14, 13, 13, 12, 12, 11, 11, 10, 10, 9, 9,
 ];
-const size = 10;
-const canvaswidth = (Math.max(...widths) + 0.5) * size;
-const canvasheight = ((widths.length / 2) + 0.5) * size;
+const xsize = 30;
+const ysize = 20;
+const canvaswidth = (Math.max(...widths) + 0.5) * xsize;
+const canvasheight = ((widths.length / 2) + 0.5) * ysize;
 
 grid.setAttribute('viewBox', `0 0 ${canvaswidth} ${canvasheight}`);
 
@@ -22,7 +23,7 @@ const map = {};
 
 const drawDiamond = (x, y) => {
   const poly = document.createElementNS(ns, 'polygon');
-  const ox = x + (y % 2 ? 0.5 : 0);
+  const ox = x + (y % 2 ? 0 : 0.5);
   const oy = y / 2;
   poly.setAttribute('points',
     [
@@ -31,7 +32,7 @@ const drawDiamond = (x, y) => {
       [ox + 0.5, oy + 1],
       [ox, oy + 0.5],
     ]
-    .map(point => point.map(v => v * size).join(','))
+    .map(([px, py]) => [px * xsize, py * ysize].join(','))
     .join(' '));
   poly.setAttribute('fill', '#000000');
   grid.appendChild(poly);
@@ -52,8 +53,9 @@ const drawDiamond = (x, y) => {
 
 widths.forEach((width, y) => {
   for (let x = 0; x < width; x++) {
-    // Shift thr first row right by one.
-    map[`${x},${y}`] = drawDiamond(y === 0 ? x + 1 : x, y);
+    // Shift the first row left by one.
+    const offset = 33 - width - (y === 0 ? 1 : 0);
+    map[`${x},${y}`] = drawDiamond(offset + x, y);
   }
 });
 

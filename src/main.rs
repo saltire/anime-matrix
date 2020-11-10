@@ -7,7 +7,7 @@ mod matrix;
 mod server;
 
 fn main() {
-  matrix::usb();
+  let anime = matrix::Matrix::new().unwrap();
 
-  server::start();
+  server::start(anime);
 }
