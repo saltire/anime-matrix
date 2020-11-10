@@ -5,11 +5,14 @@ const button = document.querySelector('button');
 
 const ns = 'http://www.w3.org/2000/svg';
 
-const width = 10;
-const height = 10;
+const widths = [
+  32, 33, 33, 33, 33, 33, 33, 32, 32, 31, 31, 30, 30, 29, 29, 28, 28, 27, 27,
+  26, 26, 25, 25, 24, 24, 23, 23, 22, 22, 21, 21, 20, 20, 19, 19, 18, 18,
+  17, 17, 16, 16, 15, 15, 14, 14, 13, 13, 12, 12, 11, 11, 10, 10, 9, 9,
+];
 const size = 10;
-const canvaswidth = (width + 0.5) * size;
-const canvasheight = ((height / 2) + 0.5) * size;
+const canvaswidth = (Math.max(...widths) + 0.5) * size;
+const canvasheight = ((widths.length / 2) + 0.5) * size;
 
 grid.setAttribute('viewBox', `0 0 ${canvaswidth} ${canvasheight}`);
 
@@ -44,14 +47,15 @@ const drawDiamond = (x, y) => {
     }
   };
 
-  map[`${x},${y}`] = poly;
+  return poly;
 };
 
-for (let y = 0; y < height; y++) {
+widths.forEach((width, y) => {
   for (let x = 0; x < width; x++) {
-    drawDiamond(x, y);
+    // Shift thr first row right by one.
+    map[`${x},${y}`] = drawDiamond(y === 0 ? x + 1 : x, y);
   }
-}
+});
 
 grid.onmouseup = () => {
   painting = null;
@@ -69,16 +73,18 @@ slide.onmousedown = (e) => {
 }
 
 button.onclick = () => {
-  const values = [];
-  for (let y = 0; y < height; y++) {
+  const rows = [];
+  widths.forEach((width, y) => {
+    rows[y] = [];
     for (let x = 0; x < width; x++) {
-      values.push(parseInt(map[`${x},${y}`].getAttribute('fill').slice(1, 3), 16));
+      rows[y].push(parseInt(map[`${x},${y}`].getAttribute('fill').slice(1, 3), 16));
     }
-  }
+  });
+
 
   fetch('/post', {
     method: 'post',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ values }),
+    body: JSON.stringify({ rows }),
   });
 };

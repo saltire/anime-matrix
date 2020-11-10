@@ -5,12 +5,12 @@ use rocket_contrib::serve::StaticFiles;
 
 #[derive(Deserialize)]
 struct Data {
-  values: Vec<u8>,
+  rows: Vec<Vec<u8>>,
 }
 
 #[post("/post", format = "json", data = "<data>")]
 fn post(data: Json<Data>) -> () {
-  println!("{:?}", data.values);
+  println!("{:?}", data.rows);
 }
 
 pub fn start() {
